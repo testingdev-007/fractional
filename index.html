@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fraction Deck</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Lexend:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a maths-book grid page; one playing card in focus, five pips above it as the "hand". */
+:root{
+  --paper:#f3f5fa; --grid:rgba(52,86,170,.09); --card:#ffffff; --ink:#18223b; --muted:#56627f;
+  --line:#d8deeb; --accent:#ef5a2a; --accent-ink:#ffffff; --good:#14875b; --good-bg:#e3f5ec;
+  --bad:#c93445; --bad-bg:#fbe6e8; --tint:#eef1f8;
+  --s-ff:#6447cf; --s-fw:#0b8484; --s-mw:#b86e00; --s-fd:#c7366b; --s-wp:#2a62c9; --s-st:#4d5670;
+  --f-display:"Bricolage Grotesque", "Trebuchet MS", system-ui, sans-serif;
+  --f-body:"Lexend", "Segoe UI", system-ui, sans-serif;
+  --f-mono:"IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  --shadow:0 1px 2px rgba(24,34,59,.06), 0 12px 32px -12px rgba(24,34,59,.25);
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --paper:#10162a; --grid:rgba(150,172,235,.07); --card:#1a2238; --ink:#e8ecf6; --muted:#a0abc7;
+  --line:#2d3754; --accent:#ff7b4f; --accent-ink:#1a1206; --good:#4fd39a; --good-bg:#16352b;
+  --bad:#ff7a88; --bad-bg:#3a1c25; --tint:#222b45;
+  --s-ff:#a08cff; --s-fw:#3fc6c2; --s-mw:#f0b24a; --s-fd:#ff7aa8; --s-wp:#79a6ff; --s-st:#9aa4c0;
+  --shadow:0 1px 2px rgba(0,0,0,.3), 0 14px 36px -14px rgba(0,0,0,.6); color-scheme:dark }}
+:root[data-theme="dark"]{
+  --paper:#10162a; --grid:rgba(150,172,235,.07); --card:#1a2238; --ink:#e8ecf6; --muted:#a0abc7;
+  --line:#2d3754; --accent:#ff7b4f; --accent-ink:#1a1206; --good:#4fd39a; --good-bg:#16352b;
+  --bad:#ff7a88; --bad-bg:#3a1c25; --tint:#222b45;
+  --s-ff:#a08cff; --s-fw:#3fc6c2; --s-mw:#f0b24a; --s-fd:#ff7aa8; --s-wp:#79a6ff; --s-st:#9aa4c0;
+  --shadow:0 1px 2px rgba(0,0,0,.3), 0 14px 36px -14px rgba(0,0,0,.6); color-scheme:dark }
+
+*{box-sizing:border-box}
+body{
+  margin:0;
+  background-color:var(--paper);
+  background-image:linear-gradient(var(--grid) 1px, transparent 1px),linear-gradient(90deg,var(--grid) 1px, transparent 1px);
+  background-size:24px 24px;
+  color:var(--ink); font-family:var(--f-body); font-size:16px; line-height:1.5;
+}
+.wrap{max-width:640px; margin:0 auto; padding-block:20px 48px;
+  padding-left:max(16px, env(safe-area-inset-left, 0px)); padding-right:max(16px, env(safe-area-inset-right, 0px));
+  display:flex; flex-direction:column; gap:20px}
+header{display:flex; align-items:flex-end; justify-content:space-between; gap:12px; flex-wrap:wrap}
+h1{font-family:var(--f-display); font-weight:800; font-size:clamp(2rem,7vw,2.8rem); line-height:1; margin:0; letter-spacing:-.02em}
+h1 .slash{color:var(--accent)}
+.sub{margin:6px 0 0; color:var(--muted); font-size:.95rem}
+.stats{display:flex; gap:14px; font-size:.82rem; color:var(--muted); font-variant-numeric:tabular-nums}
+.stats b{display:block; font-family:var(--f-display); font-size:1.3rem; color:var(--ink); line-height:1.1}
+h2{font-family:var(--f-display); font-weight:800; font-size:1.35rem; margin:0; text-wrap:balance}
+.panel{background:var(--card); border:1px solid var(--line); border-radius:18px; padding:20px; display:flex; flex-direction:column; gap:14px}
+.howto{display:grid; grid-template-columns:auto 1fr; gap:6px 14px; align-items:center; margin:0}
+.howto dt{font-family:var(--f-mono); font-weight:500; background:var(--tint); border-radius:8px; padding:2px 10px; justify-self:start}
+.howto dd{margin:0; color:var(--muted)}
+
+/* deck chooser */
+.chips{display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:10px}
+.chip{position:relative; display:flex; gap:10px; align-items:flex-start; border:1.5px solid var(--line); border-radius:14px; padding:12px; cursor:pointer; background:var(--card); transition:border-color .15s, transform .15s}
+.chip:hover{transform:translateY(-2px)}
+.chip input{position:absolute; opacity:0; pointer-events:none}
+.chip .sym{flex:none; width:34px; height:34px; border-radius:10px; display:grid; place-items:center; font-family:var(--f-display); font-weight:800; font-size:1.2rem; color:#fff; background:var(--suit)}
+.chip .nm{font-weight:600; font-size:.92rem; line-height:1.25}
+.chip .ex{font-family:var(--f-mono); font-size:.8rem; color:var(--muted)}
+.chip .tick{position:absolute; top:8px; right:10px; font-size:.8rem; color:var(--suit); opacity:0}
+.chip:has(input:checked){border-color:var(--suit); box-shadow:inset 0 0 0 1px var(--suit)}
+.chip:has(input:checked) .tick{opacity:1}
+.chip:has(input:focus-visible){outline:3px solid var(--accent); outline-offset:2px}
+.chip:not(:has(input:checked)) .sym{opacity:.45}
+.beyond{font-size:.72rem; font-weight:600; text-transform:uppercase; letter-spacing:.06em; color:var(--muted)}
+
+button{font:inherit; cursor:pointer; border-radius:12px; border:0; padding:12px 18px; font-weight:600}
+button:focus-visible, input:focus-visible, textarea:focus-visible, summary:focus-visible{outline:3px solid var(--accent); outline-offset:2px}
+.primary{background:var(--accent); color:var(--accent-ink); font-family:var(--f-display); font-size:1.05rem; letter-spacing:.01em}
+.primary:hover{filter:brightness(1.06)}
+.ghost{background:transparent; color:var(--ink); border:1.5px solid var(--line)}
+.ghost:hover{border-color:var(--muted)}
+.row{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
+.row.end{justify-content:flex-end}
+.big{width:100%; padding:16px; font-size:1.2rem}
+.warn{color:var(--bad); font-size:.9rem; margin:0}
+
+/* hand of five */
+.hand{display:flex; gap:8px; justify-content:center}
+.pip{width:38px; height:52px; border-radius:7px; border:1.5px solid var(--line); background:var(--card); display:grid; place-items:center; font-family:var(--f-display); font-weight:800; color:var(--muted); font-size:.95rem; transition:transform .2s}
+.pip.now{border-color:var(--suit); color:var(--suit); transform:translateY(-6px); box-shadow:var(--shadow)}
+.pip.good{background:var(--good-bg); border-color:var(--good); color:var(--good)}
+.pip.bad{background:var(--bad-bg); border-color:var(--bad); color:var(--bad)}
+
+/* the card */
+.stage{perspective:1400px}
+.card{position:relative; background:var(--card); border-radius:22px; border:1px solid var(--line); box-shadow:var(--shadow);
+  padding:44px 22px 46px; display:flex; flex-direction:column; gap:14px; transition:transform .2s ease-in; transform-origin:center}
+.card.turn{transform:rotateY(90deg)}
+.card.deal{animation:deal .35s ease-out}
+@keyframes deal{from{transform:translateY(24px) rotate(-3deg); opacity:.2}to{transform:none; opacity:1}}
+.corner{position:absolute; display:flex; flex-direction:column; align-items:center; line-height:1; color:var(--suit)}
+.corner.tl{top:12px; left:14px}
+.corner.br{bottom:12px; right:14px; transform:rotate(180deg)}
+.corner .s{font-family:var(--f-display); font-weight:800; font-size:1.5rem}
+.corner .k{font-size:.62rem; font-weight:600; letter-spacing:.08em; text-transform:uppercase}
+.eyebrow{margin:0; font-size:.75rem; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--suit); text-align:center}
+.q{font-family:var(--f-body); font-size:clamp(1.5rem,6.2vw,2.1rem); font-weight:500; text-align:center; display:flex; flex-wrap:wrap; justify-content:center; align-items:center; gap:8px 12px; padding:6px 0; font-variant-numeric:tabular-nums}
+.q.word{display:block; font-size:1.12rem; line-height:1.75; text-align:left; font-weight:400}
+.n{display:inline-block; font-family:var(--f-mono); font-weight:500; background:color-mix(in srgb, var(--suit) 12%, transparent); color:var(--ink); border-radius:10px; padding:0 .35em; white-space:nowrap}
+.q.word .n{padding:0 .3em; border-radius:7px}
+.op{color:var(--suit); font-weight:600}
+.box{display:inline-block; width:1.7em; height:1.25em; border:2.5px dashed var(--suit); border-radius:8px; vertical-align:middle}
+.read{margin:0; text-align:center; color:var(--muted); font-size:.9rem}
+.read b{font-weight:500; color:var(--ink)}
+label.lbl{font-weight:600; font-size:.92rem; display:block; margin-bottom:6px}
+label.lbl span{font-weight:400; color:var(--muted)}
+.ansrow{display:flex; gap:10px; align-items:center}
+#ans{flex:1; min-width:0; font-family:var(--f-mono); font-size:1.5rem; padding:10px 14px; border-radius:12px; border:2px solid var(--line); background:var(--paper); color:var(--ink)}
+#ans:focus{border-color:var(--suit)}
+.unit{font-weight:600; color:var(--muted)}
+.typed{margin:6px 0 0; font-size:.9rem; color:var(--muted); min-height:1.4em}
+.typed b{color:var(--ink); font-weight:600}
+.typed.oops{color:var(--bad)}
+textarea{width:100%; resize:vertical; min-height:140px; font-family:var(--f-mono); font-size:1rem; line-height:24px; padding:6px 12px; border-radius:12px; border:2px solid var(--line); color:var(--ink);
+  background-color:var(--paper); background-image:linear-gradient(var(--grid) 1px, transparent 1px),linear-gradient(90deg,var(--grid) 1px, transparent 1px); background-size:24px 24px; background-position:0 5px}
+textarea:focus{border-color:var(--suit)}
+.err{margin:0; color:var(--bad); font-size:.92rem; text-align:right}
+
+/* back of card */
+.stamp{align-self:center; font-family:var(--f-display); font-weight:800; font-size:1.7rem; padding:4px 18px; border-radius:12px; border:3px solid currentColor; transform:rotate(-4deg)}
+.stamp.good{color:var(--good); background:var(--good-bg)}
+.stamp.bad{color:var(--bad); background:var(--bad-bg)}
+.msg{margin:0; text-align:center; text-wrap:balance}
+.compare{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+.compare div{background:var(--tint); border-radius:12px; padding:10px 12px; min-width:0}
+.compare small{display:block; font-size:.72rem; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--muted)}
+.compare .v{font-family:var(--f-mono); font-size:1.3rem; font-weight:500; overflow-wrap:anywhere}
+.compare .w{font-size:.82rem; color:var(--muted)}
+.steps{margin:0; padding-left:1.4em; display:flex; flex-direction:column; gap:4px}
+.steps li{padding-left:4px}
+.steps li::marker{color:var(--suit); font-weight:600}
+h3{margin:0; font-size:.95rem; font-weight:600}
+pre.work{margin:0; font-family:var(--f-mono); white-space:pre-wrap; overflow-wrap:anywhere; background:var(--paper); border:1px dashed var(--line); border-radius:12px; padding:10px 12px; font-size:.92rem}
+
+/* results */
+.score{display:flex; align-items:center; gap:16px; flex-wrap:wrap}
+.score .big-num{font-family:var(--f-display); font-weight:800; font-size:3.4rem; line-height:1; font-variant-numeric:tabular-nums}
+.stars{font-size:1.6rem; letter-spacing:2px; color:var(--accent)}
+.stars .off{color:var(--line)}
+.summary{display:flex; flex-direction:column; gap:8px; margin:0; padding:0; list-style:none}
+.summary li{display:grid; grid-template-columns:28px 1fr auto; gap:10px; align-items:center; border:1px solid var(--line); border-left:5px solid var(--suit); border-radius:12px; padding:10px 12px; background:var(--card)}
+.summary .mark{font-weight:800; font-family:var(--f-display); font-size:1.2rem}
+.summary .mark.good{color:var(--good)} .summary .mark.bad{color:var(--bad)}
+.summary .qq{min-width:0; font-size:.9rem}
+.summary .qq .n{font-size:.88rem}
+.summary .aa{font-family:var(--f-mono); font-size:.95rem; text-align:right}
+.summary .aa small{display:block; font-family:var(--f-body); color:var(--muted); font-size:.7rem}
+
+details{background:var(--card); border:1px solid var(--line); border-radius:18px; padding:14px 20px}
+summary{cursor:pointer; font-weight:600}
+details ul{margin:10px 0 0; padding-left:1.2em; display:flex; flex-direction:column; gap:6px; color:var(--muted); font-size:.92rem}
+details li b{color:var(--ink); font-weight:600}
+
+@media (max-width:480px){
+  .card{padding:42px 16px 44px}
+  .compare{grid-template-columns:1fr}
+  .stats{gap:10px}
+}
+@media (prefers-reduced-motion: reduce){
+  *{animation:none!important; transition:none!important}
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Fraction Deck</h1>
+      <p class="sub">Year 6 SATs practice · multiplying and dividing with fractions</p>
+    </div>
+    <div class="stats" aria-label="Your stats on this device">
+      <div><b id="stSets">0</b>sets</div>
+      <div><b id="stRight">0</b>correct</div>
+      <div><b id="stBest">–</b>best set</div>
+    </div>
+  </header>
+
+  <!-- START -->
+  <section id="vStart" class="panel" aria-labelledby="hStart">
+    <h2 id="hStart">Pick your deck</h2>
+    <div class="chips" id="chips"></div>
+    <p class="warn" id="pickWarn" hidden>Pick at least one type of card.</p>
+    <h3>How to type fractions</h3>
+    <dl class="howto">
+      <dt>1/4</dt><dd>one quarter</dd>
+      <dt>3/5</dt><dd>three fifths</dd>
+      <dt>5 3/5</dt><dd>5 and 3/5 (a space between the whole number and the fraction)</dd>
+      <dt>7</dt><dd>a whole number on its own</dd>
+    </dl>
+    <button class="primary big" id="dealBtn">Deal 5 cards</button>
+  </section>
+
+  <!-- PLAY -->
+  <section id="vPlay" hidden>
+    <div class="hand" id="hand" aria-label="Your five cards"></div>
+    <div class="stage" style="margin-top:14px"><article class="card" id="card" aria-live="polite"></article></div>
+  </section>
+
+  <!-- RESULTS -->
+  <section id="vResults" class="panel" hidden aria-labelledby="hRes">
+    <div class="score">
+      <div class="big-num" id="resNum">0/5</div>
+      <div>
+        <h2 id="hRes">Full house</h2>
+        <div class="stars" id="resStars" aria-hidden="true"></div>
+      </div>
+    </div>
+    <ul class="summary" id="resList"></ul>
+    <div class="row end">
+      <button class="ghost" id="changeBtn">Change deck</button>
+      <button class="primary" id="againBtn">Deal 5 more</button>
+    </div>
+  </section>
+
+  <details>
+    <summary>What the SATs ask about × and ÷ with fractions</summary>
+    <ul>
+      <li><b>Year 6 curriculum:</b> multiply pairs of proper fractions (answer in simplest form) and divide a proper fraction by a whole number, like 1/3 ÷ 2 = 1/6.</li>
+      <li><b>Also tested from Year 5:</b> multiply a proper fraction or a mixed number by a whole number, like 1 3/4 × 10.</li>
+      <li><b>Paper 1 (arithmetic)</b> shows bare calculations, sometimes back to front (☐ = 2/3 × 3/5). <b>Papers 2 and 3 (reasoning)</b> put the same skills into word problems.</li>
+      <li><b>Marking:</b> equivalent fractions, mixed or improper forms and exact decimals all score. Rounded decimals don't. This deck marks the same way, then shows the simplest form.</li>
+      <li><b>Known trouble spots:</b> in 2019 only 43% of pupils got 5/6 × 540 right, and fewer than half got 1 3/4 × 10. Those question shapes appear often here.</li>
+      <li><b>Dividing by a fraction</b> (like 3 ÷ 1/4) is not in the KS2 curriculum, so it lives in the optional Stretch cards.</li>
+    </ul>
+  </details>
+</div>
+
+<script>
+(function(){
+"use strict";
+/* ---------- maths helpers ---------- */
+const gcd=(a,b)=>{a=Math.abs(a);b=Math.abs(b);while(b){[a,b]=[b,a%b]}return a||1};
+const F=(n,d)=>{if(d<0){n=-n;d=-d}const g=gcd(n,d);return{n:n/g,d:d/g}};
+const ri=(a,b)=>a+Math.floor(Math.random()*(b-a+1));
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+function proper(minD,maxD){for(;;){const d=ri(minD,maxD),n=ri(1,d-1);if(gcd(n,d)===1)return[n,d]}}
+function fmt(n,d){const f=F(n,d);n=f.n;d=f.d;if(d===1)return String(n);if(n<d)return n+"/"+d;return Math.floor(n/d)+" "+(n%d)+"/"+d}
+const same=(p,q)=>p.n*q.d===q.n*p.d;
+
+const DEN={2:["half","halves"],3:["third","thirds"],4:["quarter","quarters"],5:["fifth","fifths"],6:["sixth","sixths"],7:["seventh","sevenths"],8:["eighth","eighths"],9:["ninth","ninths"],10:["tenth","tenths"],11:["eleventh","elevenths"],12:["twelfth","twelfths"]};
+const fracWords=(n,d)=>DEN[d]?n+" "+DEN[d][n===1?0:1]:n+" over "+d;
+function valueWords(n,d){const f=F(n,d);if(f.d===1)return String(f.n);if(f.n<f.d)return fracWords(f.n,f.d);return Math.floor(f.n/f.d)+" and "+fracWords(f.n%f.d,f.d)}
+
+/* parse what the pupil typed: 7 · 3/4 · 5 3/5 · 0.25 */
+function parse(s){
+  s=s.trim().replace(/\s+/g," ").replace(/⁄/g,"/");
+  if(!s)return null;
+  let m;
+  if((m=s.match(/^(\d+)$/)))return{kind:"int",n:+m[1],d:1};
+  if((m=s.match(/^(\d*)\.(\d+)$/))){const k=m[2].length;return{kind:"dec",n:parseInt((m[1]||"0")+m[2],10),d:10**k,txt:s}}
+  if((m=s.match(/^(\d+) ?\/ ?(\d+)$/))){const a=+m[1],b=+m[2];if(!b)return{error:"The bottom number of a fraction can't be 0."};return{kind:"frac",n:a,d:b,a,b}}
+  if((m=s.match(/^(\d+) (?:and )?(\d+) ?\/ ?(\d+)$/i))){const w=+m[1],a=+m[2],b=+m[3];if(!b)return{error:"The bottom number of a fraction can't be 0."};return{kind:"mixed",n:w*b+a,d:b,w,a,b}}
+  return{error:"I can't read that yet. Type it like 3/4 or 2 1/4."};
+}
+function typedWords(p){
+  if(p.kind==="int")return String(p.n);
+  if(p.kind==="dec")return "the decimal "+p.txt;
+  if(p.kind==="frac")return fracWords(p.a,p.b)+(p.a>=p.b?" (that's 1 whole or more)":"");
+  return p.w+" and "+fracWords(p.a,p.b)+(p.a>=p.b?" (hmm, the fraction part is 1 whole or more)":"");
+}
+
+/* ---------- question building ---------- */
+const N=v=>({t:"n",v:String(v)}), O=v=>({t:"o",v}), BOX={t:"box"};
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const pill=v=>`<span class="n">${esc(v)}</span>`;
+function exprHTML(t){return t.map(x=>x.t==="n"?pill(x.v):x.t==="box"?'<span class="box" aria-label="missing number"></span>':`<span class="op">${x.v}</span>`).join("")}
+function numWords(v){const p=parse(v);return p&&!p.error?(p.kind==="int"?String(p.n):typedWords(p).replace(/ \(.*\)$/,"")):v}
+function exprWords(t){const OPW={"×":"times","÷":"divided by","=":"equals"};const w=t.map(x=>x.t==="n"?numWords(x.v):x.t==="box"?"what number":OPW[x.v]).join(" ");return w.charAt(0).toUpperCase()+w.slice(1)+"?"}
+function arith(expr){return Math.random()<0.22?[BOX,O("="),...expr]:[...expr,O("="),BOX]}
+
+function toMixedSteps(p,q){
+  const out=[], g=gcd(p,q);
+  if(p<q){ if(g>1)out.push(`Simplify: divide the top and bottom by ${g} → ${fmt(p,q)}`); else out.push(`${p}/${q} is already in its simplest form`); return out }
+  if(p%q===0){out.push(`${p} ÷ ${q} = ${p/q}, a whole number`);return out}
+  const w=Math.floor(p/q), r=p%q;
+  out.push(`Change to a mixed number: ${p} ÷ ${q} = ${w} remainder ${r}, so ${w} ${r}/${q}`);
+  if(gcd(r,q)>1)out.push(`Simplify the fraction part: ${r}/${q} = ${fmt(r,q)}, giving ${fmt(p,q)}`);
+  return out;
+}
+function simpSteps(p,q){const g=gcd(p,q);return g>1&&p<q?[`Simplify: divide the top and bottom by ${g} → ${fmt(p,q)}`]:p>=q?toMixedSteps(p,q):[`${p}/${q} is already in its simplest form`]}
+
+const TYPES={
+  ff:{name:"Fraction × fraction",k:"F × F",sym:"×",ex:"2/3 × 3/5"},
+  fw:{name:"Fraction × whole number",k:"F × W",sym:"×",ex:"5/6 × 540"},
+  mw:{name:"Mixed number × whole",k:"M × W",sym:"×",ex:"1 3/4 × 10"},
+  fd:{name:"Fraction ÷ whole number",k:"F ÷ W",sym:"÷",ex:"3/4 ÷ 3"},
+  wp:{name:"Word problems",k:"Words",sym:"?",ex:"3/5 of a pizza…"},
+  st:{name:"Stretch: dividing by a fraction",k:"Stretch",sym:"÷",ex:"3 ÷ 1/4",beyond:true}
+};
+
+/* core makers return {ans, method, mistakes} so word problems can reuse them */
+function coreFF(a,b,c,d){
+  const p=a*c,q=b*d;
+  return{ans:F(p,q),method:[`Multiply the numerators (top numbers): ${a} × ${c} = ${p}`,`Multiply the denominators (bottom numbers): ${b} × ${d} = ${q}`,`That gives ${p}/${q}`,...simpSteps(p,q)],
+    mistakes:[{v:F(a+c,b+d),msg:"It looks like you added the tops and the bottoms. For ×, multiply them."},{v:F(a*d,b*c),msg:"That's the answer to a division. For ×, multiply top × top and bottom × bottom."}]};
+}
+function coreFW(n,d,W){
+  let method;
+  if(W%d===0){const k=W/d;method=[`Find 1/${d} of ${W}: ${W} ÷ ${d} = ${k}`];if(n>1)method.push(`${n}/${d} is ${n} lots of that: ${k} × ${n} = ${k*n}`);}
+  else method=[`Multiply the numerator by ${W}: ${n} × ${W} = ${n*W}`,`Keep the denominator: ${n*W}/${d}`,...toMixedSteps(n*W,d)];
+  return{ans:F(n*W,d),method,mistakes:[{v:F(n*W,1),msg:`You multiplied by ${n} but forgot to divide by ${d}.`},{v:F(n,d*W),msg:"That's dividing. Multiplying by a whole number makes a fraction bigger."},{v:F(W,d),msg:`You found 1/${d}, but the question asks for ${n}/${d}.`}]};
+}
+function coreMW(w,a,b,Nn){
+  const tot=F((w*b+a)*Nn,b), fr=fmt(a*Nn,b);
+  const method=[`Split ${w} ${a}/${b} into ${w} and ${a}/${b}`,`Wholes: ${w} × ${Nn} = ${w*Nn}`,`Fraction: ${a}/${b} × ${Nn} = ${a*Nn}/${b}`+(fr!==`${a*Nn}/${b}`?` = ${fr}`:""),`Add them: ${w*Nn} + ${fr} = ${fmt(tot.n,tot.d)}`,`(Or change ${w} ${a}/${b} to ${w*b+a}/${b} and multiply: ${w*b+a} × ${Nn} = ${(w*b+a)*Nn}, so ${(w*b+a)*Nn}/${b} = ${fmt(tot.n,tot.d)})`];
+  return{ans:tot,method,mistakes:[{v:F(w*Nn*b+a,b),msg:"You multiplied the whole number part but not the fraction part. Multiply both parts."},{v:F(w*b+a*Nn,b),msg:"You multiplied the fraction part but not the whole number part. Multiply both parts."}]};
+}
+function coreFD(a,b,n){
+  let method;
+  if(a%n===0)method=[`Shortcut: the numerator ${a} divides exactly by ${n}`,`${a} ÷ ${n} = ${a/n}, keep the denominator: ${a/n}/${b}`,...(gcd(a/n,b)>1?simpSteps(a/n,b):[])];
+  else method=[`Split each ${DEN[b]?DEN[b][0]:"part"} into ${n} equal pieces: multiply the denominator by ${n}`,`${b} × ${n} = ${b*n}, keep the numerator: ${a}/${b*n}`,...(gcd(a,b*n)>1?simpSteps(a,b*n):[])];
+  const ans=F(a,b*n);
+  method.push(`Check: ${fmt(ans.n,ans.d)} × ${n} = ${a}/${b} ✓`);
+  return{ans,method,mistakes:[{v:F(a*n,b),msg:"You multiplied instead of dividing. Dividing a fraction by a whole number makes it smaller."},{v:F(a,b+n),msg:`You added ${n} to the denominator. Multiply the denominator by ${n} instead.`}]};
+}
+function fdPick(){for(;;){const b=ri(3,10),n=ri(2,9);let a;if(Math.random()<0.35){a=n*ri(1,2)}else a=ri(1,b-1);if(a<b&&gcd(a,b)===1)return[a,b,n]}}
+
+const GEN={
+  ff(){const[a,b]=proper(2,10),[c,d]=proper(2,12);const core=coreFF(a,b,c,d);return{...core,tokens:arith([N(`${a}/${b}`),O("×"),N(`${c}/${d}`)])}},
+  fw(){
+    let n,d,W;const r=Math.random();
+    if(r<0.4){[n,d]=proper(2,12);W=d*ri(2,12)}
+    else if(r<0.65){d=pick([3,4,5,6,8]);[n]=(function(){for(;;){const x=ri(1,d-1);if(gcd(x,d)===1)return[x]}})();W=d*ri(12,Math.floor(1000/d))}
+    else{W=ri(2,9);for(;;){d=ri(3,9);if(W%d!==0)break}for(;;){n=ri(1,d-1);if(gcd(n,d)===1)break}}
+    const core=coreFW(n,d,W);const e=Math.random()<0.5?[N(`${n}/${d}`),O("×"),N(W)]:[N(W),O("×"),N(`${n}/${d}`)];
+    return{...core,tokens:arith(e)};
+  },
+  mw(){const w=ri(1,4),[a,b]=proper(2,8),Nn=Math.random()<0.25?pick([10,20,30,40]):ri(2,12);return{...coreMW(w,a,b,Nn),tokens:arith([N(`${w} ${a}/${b}`),O("×"),N(Nn)])}},
+  fd(){const[a,b,n]=fdPick();return{...coreFD(a,b,n),tokens:arith([N(`${a}/${b}`),O("÷"),N(n)])}},
+  wp(){return pick(WORD)()},
+  st(){
+    const v=ri(1,3);
+    if(v===1){const W=ri(2,9),d=ri(2,8);return{tokens:arith([N(W),O("÷"),N(`1/${d}`)]),ans:F(W*d,1),
+      method:[`Dividing by 1/${d} asks: how many ${DEN[d][1]} fit into ${W}?`,`Each whole has ${d} ${DEN[d][1]}`,`${W} × ${d} = ${W*d}`],mistakes:[{v:F(W,d),msg:`That's ${W} ÷ ${d}. Dividing by 1/${d} gives a bigger answer, not a smaller one.`}]}}
+    const[a,b]=proper(2,8);let c,d;
+    if(v===2){c=1;d=b*ri(2,3)}else{[c,d]=proper(2,8)}
+    const p=a*d,q=b*c;
+    return{tokens:arith([N(`${a}/${b}`),O("÷"),N(`${c}/${d}`)]),ans:F(p,q),
+      method:[`Keep the first fraction, change ÷ to ×, flip the second: ${a}/${b} × ${d}/${c}`,`Multiply the tops: ${a} × ${d} = ${p}; the bottoms: ${b} × ${c} = ${q}`,`That gives ${p}/${q}`,...(q===1?[]:simpSteps(p,q))],
+      mistakes:[{v:F(a*c,b*d),msg:"You multiplied without flipping the second fraction."}]};
+  }
+};
+
+/* word problems (reasoning-paper style) */
+const WORD=[
+  function(){ // fraction of an amount, whole answer
+    const ctx=pick([
+      {d:[3,4,5,6,8,10,12],kr:[20,90],t:(W,f)=>`There are ${pill(W)} pupils at Oakfield Primary. ${pill(f)} of them walk to school.<br>How many pupils walk to school?`,unit:"pupils"},
+      {d:[4,5,8,10],kr:[20,100],t:(W,f)=>`A bag holds ${pill(W+" g")} of flour. Priya uses ${pill(f)} of the bag for a cake.<br>How many grams of flour does she use?`,unit:"g"},
+      {d:[3,4,5,6],kr:[3,20],t:(W,f)=>`A cycle route is ${pill(W+" km")} long. Leo has ridden ${pill(f)} of it.<br>How far has Leo ridden?`,unit:"km"},
+      {d:[3,4,5,8],kr:[5,60],t:(W,f)=>`A school trip costs ${pill("£"+W)}. Parents have paid ${pill(f)} of the cost so far.<br>How much have they paid?`,unit:"£"}
+    ]);
+    const d=pick(ctx.d);let n;for(;;){n=ri(1,d-1);if(gcd(n,d)===1&&(d<5||n>1||Math.random()<0.3))break}
+    const W=d*ri(ctx.kr[0],ctx.kr[1]);
+    return{...coreFW(n,d,W),html:ctx.t(W,`${n}/${d}`),unit:ctx.unit,sub:"fw"};
+  },
+  function(){ // share a fraction
+    const[a,b,n]=fdPick();
+    const ctx=pick([
+      {t:`${pill(a+"/"+b)} of a pizza is left over. It is shared equally between ${pill(n)} friends.<br>What fraction of the whole pizza does each friend get?`,unit:""},
+      {t:`A jug holds ${pill(a+"/"+b)} of a litre of juice. It is poured equally into ${pill(n)} cups.<br>What fraction of a litre is in each cup?`,unit:"litre"},
+      {t:`${pill(a+"/"+b)} of a field is planted with sunflowers. The sunflower part is split equally into ${pill(n)} rows.<br>What fraction of the whole field is each row?`,unit:""}
+    ]);
+    return{...coreFD(a,b,n),html:ctx.t,unit:ctx.unit,sub:"fd"};
+  },
+  function(){ // fraction of a fraction
+    const[a,b]=proper(2,8),[c,d]=proper(2,6);
+    const ctx=pick([
+      `Ali has ${pill(a+"/"+b)} of a chocolate bar. He eats ${pill(c+"/"+d)} of the piece he has.<br>What fraction of the whole bar does Ali eat?`,
+      `${pill(a+"/"+b)} of a garden is grass. ${pill(c+"/"+d)} of the grass is in the shade.<br>What fraction of the whole garden is shady grass?`,
+      `${pill(a+"/"+b)} of a class have a pet. ${pill(c+"/"+d)} of the pet owners have a dog.<br>What fraction of the whole class has a dog?`
+    ]);
+    return{...coreFF(a,b,c,d),html:ctx,unit:"",sub:"ff"};
+  },
+  function(){ // mixed number repeated
+    const w=ri(1,3),[a,b]=proper(2,8),Nn=ri(3,9);const m=`${w} ${a}/${b}`;
+    const ctx=pick([
+      {t:`A ribbon is ${pill(m+" m")} long. Ms Patel buys ${pill(Nn)} ribbons.<br>How many metres of ribbon is that altogether?`,unit:"m"},
+      {t:`A recipe needs ${pill(m)} cups of oats. Sam makes ${pill(Nn)} batches.<br>How many cups of oats does Sam need?`,unit:"cups"},
+      {t:`A bottle holds ${pill(m+" litres")}. The caretaker fills ${pill(Nn)} bottles.<br>How many litres is that in total?`,unit:"litres"}
+    ]);
+    return{...coreMW(w,a,b,Nn),html:ctx.t,unit:ctx.unit,sub:"mw"};
+  },
+  function(){ // missing number
+    const[a,b,n]=fdPick();const core=coreFD(a,b,n);
+    core.method=[`Work backwards: the missing number is ${a}/${b} ÷ ${n}`,...core.method];
+    return{...core,tokens:[BOX,O("×"),N(n),O("="),N(`${a}/${b}`)],lead:"What number goes in the box?",sub:"fd"};
+  }
+];
+
+/* ---------- state + storage ---------- */
+const store={get(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+let stats=store.get("fdeck-stats",{sets:0,right:0,best:null});
+let chosen=store.get("fdeck-types",["ff","fw","mw","fd","wp"]);
+const S={qs:[],i:0};
+const $=id=>document.getElementById(id);
+const suit=t=>`var(--s-${t})`;
+
+function showStats(){$("stSets").textContent=stats.sets;$("stRight").textContent=stats.right;$("stBest").textContent=stats.best==null?"–":stats.best+"/5"}
+function view(v){["vStart","vPlay","vResults"].forEach(id=>$(id).hidden=id!==v);window.scrollTo({top:0,behavior:"smooth"})}
+
+function buildChips(){
+  $("chips").innerHTML=Object.entries(TYPES).map(([k,t])=>`
+    <label class="chip" style="--suit:${suit(k)}">
+      <input type="checkbox" id="t-${k}" value="${k}" ${chosen.includes(k)?"checked":""}>
+      <span class="sym" aria-hidden="true">${t.sym}</span>
+      <span><span class="nm">${t.name}</span><br><span class="ex">${esc(t.ex)}</span>${t.beyond?'<br><span class="beyond">Beyond SATs</span>':""}</span>
+      <span class="tick" aria-hidden="true">✓</span>
+    </label>`).join("");
+}
+
+function deal(){
+  chosen=[...document.querySelectorAll("#chips input:checked")].map(i=>i.value);
+  if(!chosen.length){$("pickWarn").hidden=false;return}
+  $("pickWarn").hidden=true;store.set("fdeck-types",chosen);
+  const order=[];let pool=shuffle([...chosen]);while(order.length<5){if(!pool.length)pool=shuffle([...chosen]);order.push(pool.pop())}
+  const seen=new Set();
+  S.qs=order.map(type=>{let q,key;for(let t=0;t<20;t++){q=GEN[type]();key=q.html||JSON.stringify(q.tokens);if(!seen.has(key))break}seen.add(key);q.type=type;q.work="";q.given="";q.status=null;return q});
+  S.i=0;view("vPlay");renderHand();renderFront(true);
+}
+
+function renderHand(){
+  $("hand").innerHTML=S.qs.map((q,i)=>{const cls=q.status==="good"?"good":q.status==="bad"?"bad":i===S.i?"now":"";
+    const lab=q.status==="good"?"✓":q.status==="bad"?"✗":i+1;
+    return `<div class="pip ${cls}" style="--suit:${suit(q.type)}" aria-label="Card ${i+1}${q.status?(q.status==="good"?", correct":", not correct"):""}">${lab}</div>`}).join("");
+}
+function corners(q){const t=TYPES[q.type];const c=`<span class="s">${t.sym}</span><span class="k">${esc(t.k)}</span>`;return `<div class="corner tl" aria-hidden="true">${c}</div><div class="corner br" aria-hidden="true">${c}</div>`}
+function qHTML(q){
+  if(q.tokens)return (q.lead?`<p class="read" style="font-size:1rem"><b>${q.lead}</b></p>`:"")+`<div class="q">${exprHTML(q.tokens)}</div><p class="read">Read it: <b>${esc(exprWords(q.tokens))}</b></p>`;
+  return `<div class="q word">${q.html}</div>`;
+}
+
+function renderFront(dealt){
+  const q=S.qs[S.i],card=$("card");
+  card.style.setProperty("--suit",suit(q.type));
+  card.innerHTML=`${corners(q)}
+    <p class="eyebrow">Card ${S.i+1} of 5 · ${esc(TYPES[q.type].name)}</p>
+    ${qHTML(q)}
+    <div>
+      <label class="lbl" for="ans">Your answer</label>
+      <div class="ansrow"><input id="ans" type="text" inputmode="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="e.g. 2 1/4" value="${esc(q.given)}">${q.unit?`<span class="unit">${esc(q.unit)}</span>`:""}</div>
+      <p class="typed" id="typed">Type a fraction like <b>3/4</b>, a mixed number like <b>2 1/4</b>, or a whole number.</p>
+    </div>
+    <div>
+      <label class="lbl" for="work">Workings out <span>— your jotting space. Nothing here is calculated or marked.</span></label>
+      <textarea id="work" rows="5" spellcheck="false" autocomplete="off" placeholder="Show your method here, line by line…">${esc(q.work)}</textarea>
+    </div>
+    <p class="err" id="err" hidden></p>
+    <div class="row end">
+      <button class="ghost" id="stuck">Show me how</button>
+      <button class="primary" id="check">Check answer</button>
+    </div>`;
+  if(dealt){card.classList.remove("deal");void card.offsetWidth;card.classList.add("deal")}
+  const ans=$("ans"),work=$("work");
+  ans.addEventListener("input",()=>{q.given=ans.value;liveTyped()});
+  ans.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();check(false)}});
+  work.addEventListener("input",()=>{q.work=work.value});
+  $("check").addEventListener("click",()=>check(false));
+  $("stuck").addEventListener("click",()=>check(true));
+  liveTyped();
+  if(!matchMedia("(pointer:coarse)").matches)ans.focus({preventScroll:true});
+}
+function liveTyped(){
+  const v=$("ans").value,el=$("typed"),p=parse(v);
+  el.classList.remove("oops");
+  if(!p){el.innerHTML="Type a fraction like <b>3/4</b>, a mixed number like <b>2 1/4</b>, or a whole number.";return}
+  if(p.error){el.classList.add("oops");el.textContent=p.error;return}
+  el.innerHTML="You typed: <b></b>";el.querySelector("b").textContent=typedWords(p);
+}
+
+function check(stuck){
+  const q=S.qs[S.i];let p=null;
+  if(!stuck){
+    p=parse($("ans").value);
+    const err=$("err");
+    if(!p){err.hidden=false;err.textContent="Type your answer first, or tap “Show me how”.";return}
+    if(p.error){err.hidden=false;err.textContent=p.error;return}
+  }
+  const right=!!p&&same(p,q.ans);
+  q.status=right?"good":"bad";
+  const best=fmt(q.ans.n,q.ans.d);
+  let msg;
+  if(stuck)msg="No problem. Here's how it works. Try the next card with the same method.";
+  else if(right){
+    const simplest=p.kind!=="dec"&&p.d===q.ans.d&&!(p.kind==="frac"&&p.a>=p.b&&p.d!==1);
+    if(p.kind==="dec")msg=`Correct, and an exact decimal scores in the SATs. As a fraction it's ${best}.`;
+    else if(simplest)msg=pick(["Spot on!","Nailed it!","Perfect card!","Exactly right!"]);
+    else msg=`Correct, and the SATs would give you the mark. In its simplest form it's ${best}.`;
+  } else {
+    const hit=q.mistakes&&q.mistakes.find(m=>same(p,m.v));
+    msg=hit?hit.msg:"Not this time. Compare your workings with the method below.";
+  }
+  if(!stuck){stats.right+=right?1:0}
+  turn(()=>renderBack(q,p,msg,right,stuck));
+}
+function turn(fn){
+  const card=$("card");
+  if(matchMedia("(prefers-reduced-motion: reduce)").matches){fn();return}
+  card.classList.add("turn");
+  setTimeout(()=>{fn();card.classList.remove("turn")},200);
+}
+function renderBack(q,p,msg,right,stuck){
+  renderHand();
+  const best=fmt(q.ans.n,q.ans.d), u=q.unit?` <span style="font-size:.8rem">${esc(q.unit)}</span>`:"";
+  const last=S.i===4;
+  $("card").innerHTML=`${corners(q)}
+    <p class="eyebrow">Card ${S.i+1} of 5 · ${esc(TYPES[q.type].name)}</p>
+    <div class="stamp ${right?"good":"bad"}">${right?"✓ Correct":stuck?"Let's see":"✗ Not quite"}</div>
+    <p class="msg">${esc(msg)}</p>
+    ${qHTML(q)}
+    <div class="compare">
+      <div><small>Your answer</small><div class="v">${p?esc(q.given.trim()):"—"}${p?u:""}</div><div class="w">${p?esc(typedWords(p)):"skipped"}</div></div>
+      <div><small>Answer</small><div class="v">${esc(best)}${u}</div><div class="w">${esc(valueWords(q.ans.n,q.ans.d))}</div></div>
+    </div>
+    <div><h3>How to do it</h3><ol class="steps">${q.method.map(s=>`<li>${esc(s)}</li>`).join("")}</ol></div>
+    ${q.work.trim()?`<div><h3>Your workings</h3><pre class="work">${esc(q.work)}</pre></div>`:""}
+    <div class="row end"><button class="primary" id="next">${last?"See my hand":"Next card"}</button></div>`;
+  const nx=$("next");nx.addEventListener("click",()=>{if(last)results();else{S.i++;renderHand();turn(()=>renderFront(false))}});
+  nx.focus({preventScroll:true});
+}
+
+function results(){
+  const score=S.qs.filter(q=>q.status==="good").length;
+  stats.sets++;stats.best=stats.best==null?score:Math.max(stats.best,score);store.set("fdeck-stats",stats);showStats();
+  $("resNum").textContent=score+"/5";
+  $("hRes").textContent=["Reshuffle and go again","Reshuffle and go again","Getting there","Good hand","Strong hand","Full house!"][score];
+  $("resStars").innerHTML=Array.from({length:5},(_,i)=>i<score?"★":'<span class="off">★</span>').join("");
+  $("resList").innerHTML=S.qs.map(q=>{
+    const qq=q.tokens?(q.lead?esc(q.lead)+" ":"")+exprHTML(q.tokens):q.html.replace(/<br>/g," ");
+    return `<li style="--suit:${suit(q.type)}"><span class="mark ${q.status}">${q.status==="good"?"✓":"✗"}</span><span class="qq">${qq}</span><span class="aa">${esc(fmt(q.ans.n,q.ans.d))}${q.unit?" "+esc(q.unit):""}<small>${q.given.trim()?"you: "+esc(q.given.trim()):"skipped"}</small></span></li>`}).join("");
+  view("vResults");
+}
+
+$("dealBtn").addEventListener("click",deal);
+$("againBtn").addEventListener("click",deal);
+$("changeBtn").addEventListener("click",()=>{buildChips();view("vStart")});
+buildChips();showStats();
+})();
+</script>
+
+</body>
+</html>
